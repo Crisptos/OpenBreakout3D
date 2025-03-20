@@ -1,0 +1,15 @@
+[submodule "Vendor/GLFW"]
+	path = Vendor/GLFW
+	url = https://github.com/glfw/glfw
+[submodule "Vendor/GLM"]
+	path = Vendor/GLM
+	url = https://github.com/g-truc/glm
+[submodule "Vendor/VulkanMemoryAllocator"]
+	path = Vendor/VulkanMemoryAllocator
+	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator
+[submodule "Vendor/vk-bootstrap"]
+	path = Vendor/vk-bootstrap
+	url = https://github.com/charles-lunarg/vk-bootstrap
+[submodule "Vendor/fmt"]
+	path = Vendor/fmt
+	url = https://github.com/fmtlib/fmt
