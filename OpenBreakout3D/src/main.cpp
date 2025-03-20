@@ -1,12 +1,11 @@
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
-#include <glm/glm.hpp>
-#include <fmt/core.h>
+#include "vk_render_engine.h"
 
-GLFWwindow* window;
-
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
-    fmt::println("Greetings!");
+    OB3D::RenderEngine engine;
+
+    engine.Init();
+    engine.Run();
+    engine.Destroy();
     return 0;
 }
