@@ -15,7 +15,7 @@ namespace OB3D
         void Destroy();
 
     private:
-        void InitInstance();
+        void InitVulkan();
 
         // Class Members
     public:

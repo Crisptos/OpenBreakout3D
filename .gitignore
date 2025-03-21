@@ -1,5 +1,7 @@
 #dir
 build/
 .vscode/
+.vs/
+out/
 
 #files
