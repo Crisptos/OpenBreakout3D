@@ -45,7 +45,7 @@ namespace OB3D
         auto built_inst = instance_builder.set_app_name("OpenBreakout3D")
                               .request_validation_layers(true)
                               .use_default_debug_messenger()
-                              .require_api_version(1, 3, 0)
+                              .require_api_version(1, 4, 0)
                               .build();
 
         if(!built_inst)
@@ -69,12 +69,12 @@ namespace OB3D
 
         // Physical Device
         // Grab features for Vulkan 1.3 and 1.2
-        VkPhysicalDeviceVulkan13Features features13;
+        VkPhysicalDeviceVulkan13Features features13 = {};
         features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
         features13.dynamicRendering = true;
         features13.synchronization2 = true;
 
-        VkPhysicalDeviceVulkan12Features features12;
+        VkPhysicalDeviceVulkan12Features features12 = {};
         features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
         features12.bufferDeviceAddress = true;
         features12.descriptorIndexing = true;
@@ -91,6 +91,8 @@ namespace OB3D
         vkb::Device built_device = device_builder.build().value();
         m_Device.logical = built_device.device;
         m_Device.physical = selected_physical.physical_device;
+
+        
     }
 
     void RenderEngine::Run()
