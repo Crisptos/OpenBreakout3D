@@ -10,4 +10,4 @@ An implementation of the classic arcade game Breakout using the Vulkan api. The 
 
 The tutorial I'm following alongside this project:
 
-[vkguide](vkguide.dev)
+[vkguide](https://vkguide.dev)
