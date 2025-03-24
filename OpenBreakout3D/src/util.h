@@ -17,4 +17,5 @@
 #include <glm/mat4x4.hpp>
 #include <glm/vec4.hpp>
 
-#define OB3D_ERROR_OUT(x) fmt::println("%s", x); abort();
+#define OB3D_ERROR_OUT(s) fmt::println("{:s}", s); abort();
+#define OB3D_VK_CHECK(r, s) if(r != VK_SUCCESS){ OB3D_ERROR_OUT(s); }
