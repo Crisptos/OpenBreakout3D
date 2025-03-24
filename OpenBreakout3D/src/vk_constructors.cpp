@@ -27,5 +27,91 @@ namespace OB3D
 			return command_buffer_allocate_info;
 		}
 
+		VkFenceCreateInfo FenceCreateInfo(VkFenceCreateFlags flags)
+		{
+			VkFenceCreateInfo fence_create_info = {};
+			fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+			fence_create_info.pNext = nullptr;
+			fence_create_info.flags = flags;
+
+			return fence_create_info;
+		}
+
+		VkSemaphoreCreateInfo SemaphoreCreateInfo(VkSemaphoreCreateFlags flags)
+		{
+			VkSemaphoreCreateInfo semaphore_create_info = {};
+			semaphore_create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+			semaphore_create_info.pNext = nullptr;
+			semaphore_create_info.flags = flags;
+
+			return semaphore_create_info;
+		}
+
+		VkCommandBufferBeginInfo CommandBufferBeginInfo(VkCommandBufferUsageFlags flags)
+		{
+			VkCommandBufferBeginInfo cmd_buffer_begin_info = {};
+			cmd_buffer_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+			cmd_buffer_begin_info.pNext = nullptr;
+			cmd_buffer_begin_info.pInheritanceInfo = nullptr;
+			cmd_buffer_begin_info.flags = flags;
+
+			return cmd_buffer_begin_info;
+		}
+
+		VkImageSubresourceRange ImageSubresourceRange(VkImageAspectFlags aspect_mask)
+		{
+			VkImageSubresourceRange sub_img = {};
+			sub_img.aspectMask = aspect_mask;
+			sub_img.baseMipLevel = 0;
+			sub_img.levelCount = VK_REMAINING_MIP_LEVELS;
+			sub_img.baseArrayLayer = 0;
+			sub_img.layerCount = VK_REMAINING_ARRAY_LAYERS;
+
+			return sub_img;
+		}
+
+		VkSemaphoreSubmitInfo SemaphoreSubmitInfo(VkPipelineStageFlags stage_mask, VkSemaphore semaphore)
+		{
+			VkSemaphoreSubmitInfo semaphore_submit_info = {};
+			semaphore_submit_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+			semaphore_submit_info.pNext = nullptr;
+			semaphore_submit_info.semaphore = semaphore;
+			semaphore_submit_info.stageMask = stage_mask;
+			semaphore_submit_info.deviceIndex = 0;
+			semaphore_submit_info.value = 1;
+
+			return semaphore_submit_info;
+		}
+
+		VkCommandBufferSubmitInfo CommandBufferSubmitInfo(VkCommandBuffer cmd_buff)
+		{
+			VkCommandBufferSubmitInfo cmd_buff_submit_info = {};
+			cmd_buff_submit_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
+			cmd_buff_submit_info.pNext = nullptr;
+			cmd_buff_submit_info.commandBuffer = cmd_buff;
+			cmd_buff_submit_info.deviceMask = 0;
+
+			return cmd_buff_submit_info;
+
+		}
+
+		VkSubmitInfo2 SubmitInfo2(VkCommandBufferSubmitInfo* cmd_buff_submit_info, VkSemaphoreSubmitInfo* signal_semaphore_info, VkSemaphoreSubmitInfo* wait_semaphore_info)
+		{
+			VkSubmitInfo2 submit_info_2 = {};
+			submit_info_2.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
+			submit_info_2.pNext = nullptr;
+
+			submit_info_2.waitSemaphoreInfoCount = wait_semaphore_info == nullptr ? 0 : 1;
+			submit_info_2.pWaitSemaphoreInfos = wait_semaphore_info;
+
+			submit_info_2.signalSemaphoreInfoCount = signal_semaphore_info == nullptr ? 0 : 1;
+			submit_info_2.pSignalSemaphoreInfos = signal_semaphore_info;
+
+			submit_info_2.commandBufferInfoCount = 1;
+			submit_info_2.pCommandBufferInfos = cmd_buff_submit_info;
+
+			return submit_info_2;
+		}
+
 	}
 }

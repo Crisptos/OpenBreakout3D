@@ -1,6 +1,7 @@
 #pragma once
 #include "util.h"
 #include "vk_constructors.h"
+#include "vk_image_functions.h"
 
 namespace OB3D
 {
@@ -9,6 +10,8 @@ namespace OB3D
 
         VkCommandPool command_pool;
         VkCommandBuffer main_command_buffer;
+        VkSemaphore swapchain_semaphore, render_semaphore;
+        VkFence render_fence;
     };
 
     constexpr unsigned int FRAME_OVERLAP = 2;
@@ -30,6 +33,7 @@ namespace OB3D
         void CreateSwapchain(uint32_t width, uint32_t height);
         void InitSwapchain();
         void InitCommands();
+        void InitSyncStructs();
 
         // Class Members
     public:

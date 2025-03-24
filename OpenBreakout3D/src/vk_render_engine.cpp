@@ -36,6 +36,7 @@ namespace OB3D
         InitVulkan();
         InitSwapchain();
         InitCommands();
+        InitSyncStructs();
 
         m_IsInitialized = true;
     }
@@ -146,6 +147,28 @@ namespace OB3D
         }
     }
 
+    void RenderEngine::InitSyncStructs()
+    {
+        // create the structures needed to synchronize the CPU and GPU
+        // One fence will control when the GPU tells the CPU it's finished rendering a frame
+        // Two semaphores will synchronize when we request an image from the swapchain and present an image
+        // Start the fence as signaled
+
+        VkFenceCreateInfo fence_create_info = VkConstructors::FenceCreateInfo(VK_FENCE_CREATE_SIGNALED_BIT);
+        VkSemaphoreCreateInfo semaphore_create_info = VkConstructors::SemaphoreCreateInfo(0);
+
+        for (int i = 0; i < FRAME_OVERLAP; i++)
+        {
+            VkResult result = vkCreateFence(m_Device.logical, &fence_create_info, nullptr, &m_Frames[i].render_fence);
+            OB3D_VK_CHECK(result, "Failed to create fence for frames");
+            result = vkCreateSemaphore(m_Device.logical, &semaphore_create_info, nullptr, &m_Frames[i].swapchain_semaphore);
+            OB3D_VK_CHECK(result, "Failed to create semaphore for swapchain");
+            result = vkCreateSemaphore(m_Device.logical, &semaphore_create_info, nullptr, &m_Frames[i].render_semaphore);
+            OB3D_VK_CHECK(result, "Failed to create semaphore for rendering");
+            fmt::println("Created fence and semaphores for frame {}", i);
+        }
+    }
+
     void RenderEngine::Run()
     {
         while (!glfwWindowShouldClose(m_Window))
@@ -161,12 +184,86 @@ namespace OB3D
 
     void RenderEngine::Draw()
     {
+        // Wait until the GPU has finished rendering the last frame. Timeout of 1 sec
+        VkResult result = vkWaitForFences(m_Device.logical, 1, &GetCurrentFrame().render_fence, true, 1000000000);
+        OB3D_VK_CHECK(result, "Fence timeout!");
+        result = vkResetFences(m_Device.logical, 1, &GetCurrentFrame().render_fence);
+
+        // Request image from the swapchain
+        // If the swapchain doesn't have any image we can use it will block the
+        // calling thread with the timeout specified which is 1 sec (in nanoseconds)
+        uint32_t swapchain_img_idx;
+        vkAcquireNextImageKHR(m_Device.logical, m_Swapchain, 1000000000, GetCurrentFrame().swapchain_semaphore, nullptr, &swapchain_img_idx);
+
+        VkCommandBuffer cmd_buff = GetCurrentFrame().main_command_buffer;
+        result = vkResetCommandBuffer(cmd_buff, 0);
+        OB3D_VK_CHECK(result, "Failed to reset command buffer");
+
+        VkCommandBufferBeginInfo cmd_buffer_begin_info = VkConstructors::CommandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+        result = vkBeginCommandBuffer(cmd_buff, &cmd_buffer_begin_info);
+        OB3D_VK_CHECK(result, "Failed to begin command buffer");
+
+        // make the swapchain image into a writeable mode before rendering
+        VkImageFunctions::TransitionImage(cmd_buff, m_SwapchainImages[swapchain_img_idx], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+
+        VkClearColorValue clear_value = {};
+        float flash = std::abs(std::sin(m_FrameCount / 120.0f));
+        clear_value = { {0.0f, 0.0f, flash, 1.0f} };
+
+        VkImageSubresourceRange clear_range = VkConstructors::ImageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT);
+
+        // Clear image
+        vkCmdClearColorImage(cmd_buff, m_SwapchainImages[swapchain_img_idx], VK_IMAGE_LAYOUT_GENERAL, &clear_value, 1, &clear_range);
+
+        // make the swapchain image into a presentable mode
+        VkImageFunctions::TransitionImage(cmd_buff, m_SwapchainImages[swapchain_img_idx], VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+
+        result = vkEndCommandBuffer(cmd_buff);
+        OB3D_VK_CHECK(result, "Unable to end command buffer");
+
+        // prepare submissions to the queue
+        // we want to wait on the present semaphore, as that semaphore is signaled when the swapchain is ready
+        // we will signal the render semaphore to indicate rendering has finished
+
+        VkCommandBufferSubmitInfo cmd_submit_info = VkConstructors::CommandBufferSubmitInfo(cmd_buff);
+
+        VkSemaphoreSubmitInfo wait_info = VkConstructors::SemaphoreSubmitInfo(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR, GetCurrentFrame().swapchain_semaphore);
+        VkSemaphoreSubmitInfo signal_info = VkConstructors::SemaphoreSubmitInfo(VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, GetCurrentFrame().render_semaphore);
+
+        VkSubmitInfo2 submit_info_2 = VkConstructors::SubmitInfo2(&cmd_submit_info, &signal_info, &wait_info);
+
+        // Submit the command buffer to the queue and execute it
+        // render fence will now block until the graphics commands finish execution
+        result = vkQueueSubmit2(m_GraphicsQueue, 1, &submit_info_2, GetCurrentFrame().render_fence);
+        OB3D_VK_CHECK(result, "Failed to submit info to the graphics queue");
+
+        // prepare present
+        // put the image we just rendered to into the visible window
+        // we want to wait on the render semaphore for that
+        // as its necessary that drawing commands have finished before the image is displayed to the user
+        VkPresentInfoKHR present_info = {};
+        present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+        present_info.pNext = nullptr;
+        present_info.pSwapchains = &m_Swapchain;
+        present_info.swapchainCount = 1;
+
+        present_info.pWaitSemaphores = &GetCurrentFrame().render_semaphore;
+        present_info.waitSemaphoreCount = 1;
+
+        present_info.pImageIndices = &swapchain_img_idx;
+
+        result = vkQueuePresentKHR(m_GraphicsQueue, &present_info);
+        OB3D_VK_CHECK(result, "Failed to present to the graphics queue!");
+
+        // increment frame number
+        m_FrameCount++;
     }
 
     void RenderEngine::Destroy()
     {
         if (m_IsInitialized)
         {
+            fmt::println("Shutting down...");
             // Reverse order of creation
             loaded_engine = nullptr;
             // Vulkan
@@ -175,6 +272,11 @@ namespace OB3D
             for (int i = 0; i < FRAME_OVERLAP; i++)
             {
                 vkDestroyCommandPool(m_Device.logical, m_Frames[i].command_pool, nullptr);
+
+                // sync objects
+                vkDestroyFence(m_Device.logical, m_Frames[i].render_fence, nullptr);
+                vkDestroySemaphore(m_Device.logical, m_Frames[i].render_semaphore, nullptr);
+                vkDestroySemaphore(m_Device.logical, m_Frames[i].swapchain_semaphore, nullptr);
             }
 
             vkDestroySwapchainKHR(m_Device.logical, m_Swapchain, nullptr);
