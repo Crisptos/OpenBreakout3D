@@ -62,10 +62,24 @@ namespace OB3D
         m_Instance = vkb_inst.instance;
         m_DbgMessenger = vkb_inst.debug_messenger;
 
+        Destroyable dstr_inst;
+        dstr_inst.inst = m_Instance;
+        dstr_inst.type = DestroyableVkType::DESTROYABLE_INSTANCE;
+        global_queue.Push(dstr_inst);
+        Destroyable dstr_dbg;
+        dstr_dbg.dbg_msg = m_DbgMessenger;
+        dstr_dbg.type = DestroyableVkType::DESTROYABLE_DBG_MESSENGER;
+        global_queue.Push(dstr_dbg);
+
         // Get surface from GLFW
         VkResult result = glfwCreateWindowSurface(m_Instance, m_Window, nullptr, &m_Surface);
         OB3D_VK_CHECK(result, "Failed to create vk surface!");
         fmt::println("SurfaceKHR created successfully");
+
+        Destroyable dstr_surf;
+        dstr_surf.surface = m_Surface;
+        dstr_surf.type = DestroyableVkType::DESTROYABLE_SURFACE;
+        global_queue.Push(dstr_surf);
 
         // Physical Device
         // Grab features for Vulkan 1.3 and 1.2
@@ -92,6 +106,11 @@ namespace OB3D
         m_Device.logical = built_device.device;
         m_Device.physical = selected_physical.physical_device;
         fmt::println("Device successfully chosen: {:s}", selected_physical.name);
+
+        Destroyable dstr_device;
+        dstr_device.device = m_Device.logical;
+        dstr_device.type = DestroyableVkType::DESTROYABLE_DEVICE;
+        global_queue.Push(dstr_device);
 
         // Use vk-bootstrap to get a Graphics queue
         m_GraphicsQueue = built_device.get_queue(vkb::QueueType::graphics).value();
@@ -286,10 +305,11 @@ namespace OB3D
             }
 
             //  Core
-            vkDestroySurfaceKHR(m_Instance, m_Surface, nullptr);
-            vkDestroyDevice(m_Device.logical, nullptr);
-            vkb::destroy_debug_utils_messenger(m_Instance, m_DbgMessenger);
-            vkDestroyInstance(m_Instance, nullptr);
+            global_queue.Flush();
+            //vkDestroySurfaceKHR(m_Instance, m_Surface, nullptr);
+            //vkDestroyDevice(m_Device.logical, nullptr);
+            //vkb::destroy_debug_utils_messenger(m_Instance, m_DbgMessenger);
+            //vkDestroyInstance(m_Instance, nullptr);
             // GLFW
             glfwDestroyWindow(m_Window);
             glfwTerminate();

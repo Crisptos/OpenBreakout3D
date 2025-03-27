@@ -2,6 +2,7 @@
 #include "util.h"
 #include "vk_constructors.h"
 #include "vk_image_functions.h"
+#include "destroyer_queue.h"
 
 namespace OB3D
 {
@@ -42,6 +43,9 @@ namespace OB3D
         bool m_IsIdle = false;
 
     private:
+        // Engine Util
+        DestroyerQueue global_queue;
+
         // GLFW
         struct GLFWwindow *m_Window;
 
