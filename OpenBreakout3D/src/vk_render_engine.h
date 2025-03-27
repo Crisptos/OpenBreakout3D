@@ -13,6 +13,7 @@ namespace OB3D
         VkCommandBuffer main_command_buffer;
         VkSemaphore swapchain_semaphore, render_semaphore;
         VkFence render_fence;
+        DestroyerQueue frame_queue;
     };
 
     constexpr unsigned int FRAME_OVERLAP = 2;

@@ -1,6 +1,10 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <VkBootstrap.h>
+
+#define VMA_IMPLEMENTATION
+#include "vk_mem_alloc.h"
+
 #include "vk_render_engine.h"
 
 namespace OB3D
@@ -143,6 +147,19 @@ namespace OB3D
         m_Swapchain = built_swapchain.swapchain;
         m_SwapchainImages = built_swapchain.get_images().value();
         m_SwapchainImageViews = built_swapchain.get_image_views().value();
+
+        for (VkImageView img_view : m_SwapchainImageViews)
+        {
+            Destroyable dstr_img_view;
+            dstr_img_view.img_view = img_view;
+            dstr_img_view.type = DestroyableVkType::DESTROYABLE_IMG_VIEW;
+            global_queue.Push(dstr_img_view);
+        }
+
+        Destroyable dstr_swap;
+        dstr_swap.swapchain = m_Swapchain;
+        dstr_swap.type = DestroyableVkType::DESTROYABLE_SWAPCHAIN;
+        global_queue.Push(dstr_swap);
     }
 
     void RenderEngine::InitCommands()
@@ -206,6 +223,8 @@ namespace OB3D
         // Wait until the GPU has finished rendering the last frame. Timeout of 1 sec
         VkResult result = vkWaitForFences(m_Device.logical, 1, &GetCurrentFrame().render_fence, true, 1000000000);
         OB3D_VK_CHECK(result, "Fence timeout!");
+        GetCurrentFrame().frame_queue.Flush();
+
         result = vkResetFences(m_Device.logical, 1, &GetCurrentFrame().render_fence);
 
         // Request image from the swapchain
@@ -297,19 +316,9 @@ namespace OB3D
                 vkDestroySemaphore(m_Device.logical, m_Frames[i].render_semaphore, nullptr);
                 vkDestroySemaphore(m_Device.logical, m_Frames[i].swapchain_semaphore, nullptr);
             }
-
-            vkDestroySwapchainKHR(m_Device.logical, m_Swapchain, nullptr);
-            for (int i = 0; i < m_SwapchainImageViews.size(); i++)
-            {
-                vkDestroyImageView(m_Device.logical, m_SwapchainImageViews[i], nullptr);
-            }
-
             //  Core
             global_queue.Flush();
-            //vkDestroySurfaceKHR(m_Instance, m_Surface, nullptr);
-            //vkDestroyDevice(m_Device.logical, nullptr);
-            //vkb::destroy_debug_utils_messenger(m_Instance, m_DbgMessenger);
-            //vkDestroyInstance(m_Instance, nullptr);
+
             // GLFW
             glfwDestroyWindow(m_Window);
             glfwTerminate();

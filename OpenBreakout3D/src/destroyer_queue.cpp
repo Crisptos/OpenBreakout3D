@@ -3,6 +3,11 @@
 
 namespace OB3D
 {
+	// Global instance and Device Handles for presceeding destroy calls
+	VkInstance DestroyerQueue::inst_handle = nullptr;
+	VkDevice DestroyerQueue::device_handle = nullptr;
+
+
 	void DestroyerQueue::Push(const Destroyable& destroyable)
 	{
 		// Check for handles that need to be held onto for deletion of other handles
@@ -60,26 +65,33 @@ namespace OB3D
 
 			case DestroyableVkType::DESTROYABLE_IMG_VIEW:
 			{
+				vkDestroyImageView(device_handle, destroyable.img_view, nullptr);
+				fmt::println("Img View Destroyed Successfully");
 				break;
 			}
 		
 			case DestroyableVkType::DESTROYABLE_SWAPCHAIN:
 			{
+				vkDestroySwapchainKHR(device_handle, destroyable.swapchain, nullptr);
+				fmt::println("SwapchainKHR Destroyed Successfully");
 				break;
 			}
 
 			case DestroyableVkType::DESTROYABLE_SEMAPHORE:
 			{
+				vkDestroySemaphore(device_handle, destroyable.semaphore, nullptr);
 				break;
 			}
 
 			case DestroyableVkType::DESTROYABLE_FENCE:
 			{
+				vkDestroyFence(device_handle, destroyable.fence, nullptr);
 				break;
 			}
 
 			case DestroyableVkType::DESTROYABLE_COMMAND_POOL:
 			{
+				vkDestroyCommandPool(device_handle, destroyable.cmd_pool, nullptr);
 				break;
 			}
 

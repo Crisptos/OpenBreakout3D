@@ -48,8 +48,8 @@ namespace OB3D
 
 	private:
 		// References needed for deletion
-		VkInstance inst_handle = nullptr;
-		VkDevice device_handle = nullptr;
+		static VkInstance inst_handle;
+		static VkDevice device_handle;
 	};
 
 }
