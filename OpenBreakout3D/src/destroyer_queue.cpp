@@ -6,6 +6,7 @@ namespace OB3D
 	// Global instance and Device Handles for presceeding destroy calls
 	VkInstance DestroyerQueue::inst_handle = nullptr;
 	VkDevice DestroyerQueue::device_handle = nullptr;
+	VmaAllocator DestroyerQueue::alloc_handle = nullptr;
 
 
 	void DestroyerQueue::Push(const Destroyable& destroyable)
@@ -23,6 +24,13 @@ namespace OB3D
 			)
 		{
 			device_handle = destroyable.device;
+		}
+
+		if (destroyable.type == DestroyableVkType::DESTROYABLE_VMA
+			&& alloc_handle == nullptr
+			)
+		{
+			alloc_handle = destroyable.alloc;
 		}
 
 		destroyables.push_back(destroyable);
@@ -52,6 +60,7 @@ namespace OB3D
 			case DestroyableVkType::DESTROYABLE_DEVICE:
 			{
 				vkDestroyDevice(destroyable.device, nullptr);
+				device_handle = nullptr;
 				fmt::println("Logical Device Destroyed Successfully");
 				break;
 			}
@@ -67,6 +76,13 @@ namespace OB3D
 			{
 				vkDestroyImageView(device_handle, destroyable.img_view, nullptr);
 				fmt::println("Img View Destroyed Successfully");
+				break;
+			}
+			
+			case DestroyableVkType::DESTROYABLE_IMG:
+			{
+				vmaDestroyImage(alloc_handle, destroyable.img, destroyable.allocation);
+				fmt::println("Img Destroyed Successfully");
 				break;
 			}
 		
@@ -99,6 +115,14 @@ namespace OB3D
 			{
 				vkb::destroy_debug_utils_messenger(inst_handle, destroyable.dbg_msg);
 				fmt::println("Dbg Messenger Function Destroyed Successfully");
+				break;
+			}
+
+			case DestroyableVkType::DESTROYABLE_VMA:
+			{
+				vmaDestroyAllocator(destroyable.alloc);
+				alloc_handle = nullptr;
+				fmt::println("VMA Destroyed Successfully");
 				break;
 			}
 

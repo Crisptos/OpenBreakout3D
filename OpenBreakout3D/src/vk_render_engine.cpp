@@ -36,6 +36,9 @@ namespace OB3D
             OB3D_ERROR_OUT("GLFW failed to create window");
         }
 
+        m_Width = 800;
+        m_Height = 600;
+
         // Vulkan Initialization
         InitVulkan();
         InitSwapchain();
@@ -119,12 +122,70 @@ namespace OB3D
         // Use vk-bootstrap to get a Graphics queue
         m_GraphicsQueue = built_device.get_queue(vkb::QueueType::graphics).value();
         m_GraphicsQueueFamilyIdx = built_device.get_queue_index(vkb::QueueType::graphics).value();
+
+        VmaAllocatorCreateInfo create_info_vma = {};
+        create_info_vma.physicalDevice = m_Device.physical;
+        create_info_vma.device = m_Device.logical;
+        create_info_vma.instance = m_Instance;
+        create_info_vma.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+        vmaCreateAllocator(&create_info_vma, &m_VmaAlloc);
+        if (!m_VmaAlloc)
+        {
+            OB3D_ERROR_OUT("Failed to create vma!");
+        }
+
+        Destroyable dstr_vma;
+        dstr_vma.alloc = m_VmaAlloc;
+        dstr_vma.type = DestroyableVkType::DESTROYABLE_VMA;
+        global_queue.Push(dstr_vma);
     }
 
     void RenderEngine::InitSwapchain()
     {
         CreateSwapchain(800, 600);
         fmt::println("SwapchainKHR created successfully");
+
+        VkExtent3D draw_img_ext = {
+            m_Width, m_Height, 1
+        };
+
+        // Hardcoded format to 32 bit float
+        m_DrawImg.img_format = VK_FORMAT_R16G16B16A16_SFLOAT;
+        m_DrawImg.img_ext = draw_img_ext;
+
+        VkImageUsageFlags draw_img_usage = {};
+        draw_img_usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+                         VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+                         VK_IMAGE_USAGE_STORAGE_BIT |
+                         VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+        VkImageCreateInfo draw_img_info = VkConstructors::ImageCreateInfo(m_DrawImg.img_format, draw_img_usage, draw_img_ext);
+
+        // for the draw img we want to allocate it from gpu local memory
+        VmaAllocationCreateInfo draw_img_alloc_info = {};
+        draw_img_alloc_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+        draw_img_alloc_info.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+        // Allocate the image and create
+        vmaCreateImage(m_VmaAlloc, &draw_img_info, &draw_img_alloc_info, &m_DrawImg.img, &m_DrawImg.alloc, nullptr);
+
+        // build an image-view for the draw image to use for rendering
+        VkImageViewCreateInfo img_view_info = VkConstructors::ImageViewCreateInfo(m_DrawImg.img_format, m_DrawImg.img, VK_IMAGE_ASPECT_COLOR_BIT);
+
+        VkResult result = vkCreateImageView(m_Device.logical, &img_view_info, nullptr, &m_DrawImg.img_view);
+        OB3D_VK_CHECK(result, "Failed to create draw image view");
+
+        // add to destroyer queue
+        Destroyable dstr_img = {};
+        dstr_img.img = m_DrawImg.img;
+        dstr_img.type = DestroyableVkType::DESTROYABLE_IMG;
+        dstr_img.allocation = m_DrawImg.alloc;
+        global_queue.Push(dstr_img);
+
+        Destroyable dstr_img_view = {};
+        dstr_img_view.img_view = m_DrawImg.img_view;
+        dstr_img_view.type = DestroyableVkType::DESTROYABLE_IMG_VIEW;
+        global_queue.Push(dstr_img_view);
     }
 
     void RenderEngine::CreateSwapchain(uint32_t width, uint32_t height)
@@ -241,23 +302,27 @@ namespace OB3D
         result = vkBeginCommandBuffer(cmd_buff, &cmd_buffer_begin_info);
         OB3D_VK_CHECK(result, "Failed to begin command buffer");
 
-        // make the swapchain image into a writeable mode before rendering
-        VkImageFunctions::TransitionImage(cmd_buff, m_SwapchainImages[swapchain_img_idx], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+        m_DrawExt.width = m_DrawImg.img_ext.width;
+        m_DrawExt.height = m_DrawImg.img_ext.height;
 
-        VkClearColorValue clear_value = {};
-        float flash = std::abs(std::sin(m_FrameCount / 120.0f));
-        clear_value = { {0.0f, 0.0f, flash, 1.0f} };
+        // transition our main draw image into the general layout so we can write into it
+        // we will overwrite it all so we dont care about what the older layout was
+        VkImageFunctions::TransitionImage(cmd_buff, m_DrawImg.img, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
-        VkImageSubresourceRange clear_range = VkConstructors::ImageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT);
+        DrawBackground(cmd_buff);
 
-        // Clear image
-        vkCmdClearColorImage(cmd_buff, m_SwapchainImages[swapchain_img_idx], VK_IMAGE_LAYOUT_GENERAL, &clear_value, 1, &clear_range);
+        // transition the draw image and the swapchain image into the correct transfer layouts
+        VkImageFunctions::TransitionImage(cmd_buff, m_DrawImg.img, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+        VkImageFunctions::TransitionImage(cmd_buff, m_SwapchainImages[swapchain_img_idx], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
-        // make the swapchain image into a presentable mode
-        VkImageFunctions::TransitionImage(cmd_buff, m_SwapchainImages[swapchain_img_idx], VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+        // Execute a copy from the draw image to the swapchain image
+        VkImageFunctions::CopyImageToImage(cmd_buff, m_DrawImg.img, m_SwapchainImages[swapchain_img_idx], m_DrawExt, m_SwapchainExtent);
+
+        // Set swapchain image layout to Present so we can show it to the screen
+        VkImageFunctions::TransitionImage(cmd_buff, m_SwapchainImages[swapchain_img_idx], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
         result = vkEndCommandBuffer(cmd_buff);
-        OB3D_VK_CHECK(result, "Unable to end command buffer");
+        OB3D_VK_CHECK(result, "Failed to end command buffer!");
 
         // prepare submissions to the queue
         // we want to wait on the present semaphore, as that semaphore is signaled when the swapchain is ready
@@ -295,6 +360,18 @@ namespace OB3D
 
         // increment frame number
         m_FrameCount++;
+    }
+
+    void RenderEngine::DrawBackground(VkCommandBuffer cmd_buff)
+    {
+        VkClearColorValue clear_value = {};
+        float flash_b = std::abs(std::sin(m_FrameCount / 120.0f));
+        float flash_g = std::abs(std::sin(m_FrameCount / 60.0f));
+        float flash_r = std::abs(std::sin(m_FrameCount / 30.0f));
+        clear_value = { {flash_r, flash_g, flash_b, 1.0f} };
+
+        VkImageSubresourceRange clear_range = VkConstructors::ImageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT);
+        vkCmdClearColorImage(cmd_buff, m_DrawImg.img, VK_IMAGE_LAYOUT_GENERAL, &clear_value, 1, &clear_range);
     }
 
     void RenderEngine::Destroy()

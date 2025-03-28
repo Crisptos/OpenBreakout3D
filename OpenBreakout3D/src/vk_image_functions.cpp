@@ -28,7 +28,44 @@ namespace OB3D
 			dep_info.imageMemoryBarrierCount = 1;
 			dep_info.pImageMemoryBarriers = &img_barrier;
 			vkCmdPipelineBarrier2(cmd, &dep_info);
+		}
 
+		void CopyImageToImage(VkCommandBuffer cmd, VkImage source, VkImage destination, VkExtent2D src_ext, VkExtent2D dst_ext)
+		{
+			VkImageBlit2 blit_region = {};
+			blit_region.sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2;
+			blit_region.pNext = nullptr;
+
+			blit_region.srcOffsets[1].x = src_ext.width;
+			blit_region.srcOffsets[1].y = src_ext.height;
+			blit_region.srcOffsets[1].z = 1;
+
+			blit_region.dstOffsets[1].x = dst_ext.width;
+			blit_region.dstOffsets[1].y = dst_ext.height;
+			blit_region.dstOffsets[1].z = 1;
+
+			blit_region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			blit_region.srcSubresource.baseArrayLayer = 0;
+			blit_region.srcSubresource.layerCount = 1;
+			blit_region.srcSubresource.mipLevel = 0;
+
+			blit_region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			blit_region.dstSubresource.baseArrayLayer = 0;
+			blit_region.dstSubresource.layerCount = 1;
+			blit_region.dstSubresource.mipLevel = 0;
+
+			VkBlitImageInfo2 blit_img_info = {};
+			blit_img_info.sType = VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2;
+			blit_img_info.pNext = nullptr;
+			blit_img_info.dstImage = destination;
+			blit_img_info.dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+			blit_img_info.srcImage = source;
+			blit_img_info.srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+			blit_img_info.filter = VK_FILTER_LINEAR;
+			blit_img_info.regionCount = 1;
+			blit_img_info.pRegions = &blit_region;
+
+			vkCmdBlitImage2(cmd, &blit_img_info);
 		}
 	}
 }

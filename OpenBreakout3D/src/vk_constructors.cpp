@@ -113,5 +113,46 @@ namespace OB3D
 			return submit_info_2;
 		}
 
+		VkImageCreateInfo ImageCreateInfo(VkFormat format, VkImageUsageFlags usage_flags, VkExtent3D ext)
+		{
+			VkImageCreateInfo create_info_img = {};
+			create_info_img.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+			create_info_img.pNext = nullptr;
+
+			create_info_img.imageType = VK_IMAGE_TYPE_2D;
+
+			create_info_img.format = format;
+			create_info_img.extent = ext;
+
+			create_info_img.mipLevels = 1;
+			create_info_img.arrayLayers = 1;
+
+			// for MSAA we will not be using it by default
+			create_info_img.samples = VK_SAMPLE_COUNT_1_BIT;
+
+			create_info_img.tiling = VK_IMAGE_TILING_OPTIMAL;
+			create_info_img.usage = usage_flags;
+
+			return create_info_img;
+		}
+
+		VkImageViewCreateInfo ImageViewCreateInfo(VkFormat format, VkImage img, VkImageAspectFlags aspect_flags)
+		{
+			VkImageViewCreateInfo create_info_img_view = {};
+			create_info_img_view.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+			create_info_img_view.pNext = nullptr;
+
+			create_info_img_view.viewType = VK_IMAGE_VIEW_TYPE_2D;
+			create_info_img_view.image = img;
+			create_info_img_view.format = format;
+			create_info_img_view.subresourceRange.baseMipLevel = 0;
+			create_info_img_view.subresourceRange.levelCount = 1;
+			create_info_img_view.subresourceRange.baseArrayLayer = 0;
+			create_info_img_view.subresourceRange.layerCount = 1;
+			create_info_img_view.subresourceRange.aspectMask = aspect_flags;
+
+			return create_info_img_view;
+		}
+
 	}
 }

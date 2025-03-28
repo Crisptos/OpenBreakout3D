@@ -6,6 +6,15 @@
 
 namespace OB3D
 {
+    struct AllocatedImage
+    {
+        VkImage img;
+        VkImageView img_view;
+        VmaAllocation alloc;
+        VkExtent3D img_ext;
+        VkFormat img_format;
+    };
+
     struct FrameData
     {
 
@@ -31,11 +40,15 @@ namespace OB3D
         void Destroy();
 
     private:
+        // Initialization
         void InitVulkan();
         void CreateSwapchain(uint32_t width, uint32_t height);
         void InitSwapchain();
         void InitCommands();
         void InitSyncStructs();
+
+        // Rendering
+        void DrawBackground(VkCommandBuffer cmd);
 
         // Class Members
     public:
@@ -46,9 +59,12 @@ namespace OB3D
     private:
         // Engine Util
         DestroyerQueue global_queue;
+        VmaAllocator m_VmaAlloc;
 
         // GLFW
         struct GLFWwindow *m_Window;
+        uint32_t m_Width;
+        uint32_t m_Height;
 
         // Vulkan
         //  Core
@@ -67,6 +83,10 @@ namespace OB3D
         std::vector<VkImage> m_SwapchainImages;
         std::vector<VkImageView> m_SwapchainImageViews;
         VkExtent2D m_SwapchainExtent;
+
+        // Offline rendering image
+        AllocatedImage m_DrawImg;
+        VkExtent2D m_DrawExt;
 
         FrameData m_Frames[FRAME_OVERLAP];
         VkQueue m_GraphicsQueue;
