@@ -46,6 +46,7 @@ namespace OB3D
         void InitSwapchain();
         void InitCommands();
         void InitSyncStructs();
+        void InitDescriptors();
 
         // Rendering
         void DrawBackground(VkCommandBuffer cmd);
@@ -60,6 +61,10 @@ namespace OB3D
         // Engine Util
         DestroyerQueue global_queue;
         VmaAllocator m_VmaAlloc;
+
+        VkConstructors::DescriptorAllocator m_GlobalDescrAllocator;
+        VkDescriptorSet m_DrawImgDescriptors;
+        VkDescriptorSetLayout m_DrawImgDescriptorLayout;
 
         // GLFW
         struct GLFWwindow *m_Window;

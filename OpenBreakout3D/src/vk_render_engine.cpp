@@ -44,7 +44,7 @@ namespace OB3D
         InitSwapchain();
         InitCommands();
         InitSyncStructs();
-
+        InitDescriptors();
         m_IsInitialized = true;
     }
 
@@ -264,6 +264,48 @@ namespace OB3D
             OB3D_VK_CHECK(result, "Failed to create semaphore for rendering");
             fmt::println("Created fence and semaphores for frame {}", i);
         }
+    }
+
+    void RenderEngine::InitDescriptors()
+    {
+        std::vector<VkConstructors::DescriptorAllocator::PoolSizeRatio> sizes =
+        {
+            { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1 }
+        };
+
+        m_GlobalDescrAllocator.InitPool(m_Device.logical, 10, sizes);
+
+        // make the descriptor set layout for our compute draw
+        {
+            VkConstructors::DescriptorLayoutBuilder builder;
+            builder.AddBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+            m_DrawImgDescriptorLayout = builder.Build(m_Device.logical, VK_SHADER_STAGE_COMPUTE_BIT);
+        }
+
+        m_DrawImgDescriptors = m_GlobalDescrAllocator.Allocate(m_Device.logical, m_DrawImgDescriptorLayout);
+
+        VkDescriptorImageInfo descr_img_info = {};
+        descr_img_info.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+        descr_img_info.imageView = m_DrawImg.img_view;
+
+        VkWriteDescriptorSet draw_img_write = {};
+        draw_img_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        draw_img_write.pNext = nullptr;
+
+        draw_img_write.dstBinding = 0;
+        draw_img_write.dstSet = m_DrawImgDescriptors;
+        draw_img_write.descriptorCount = 1;
+        draw_img_write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+        draw_img_write.pImageInfo = &descr_img_info;
+
+        vkUpdateDescriptorSets(m_Device.logical, 1, &draw_img_write, 0, nullptr);
+
+        Destroyable dstr_descriptor = {};
+        global_queue.descr_allocator = m_GlobalDescrAllocator;
+        dstr_descriptor.type = DestroyableVkType::DESTROYABLE_DESCR_SET;
+        dstr_descriptor.set_layout = m_DrawImgDescriptorLayout;
+
+        global_queue.Push(dstr_descriptor);
     }
 
     void RenderEngine::Run()

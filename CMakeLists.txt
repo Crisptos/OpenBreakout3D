@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.15)
 project(OpenBreakout3D)
 
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED True)
+
 add_subdirectory(Vendor/GLFW)
 add_subdirectory(Vendor/GLM)
 add_subdirectory(Vendor/vk-bootstrap)

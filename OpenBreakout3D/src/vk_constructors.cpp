@@ -154,5 +154,91 @@ namespace OB3D
 			return create_info_img_view;
 		}
 
+		// Builder Classes
+
+		void DescriptorLayoutBuilder::AddBinding(uint32_t binding, VkDescriptorType type)
+		{
+			VkDescriptorSetLayoutBinding new_bind = {};
+			new_bind.binding = binding;
+			new_bind.descriptorCount = 1;
+			new_bind.descriptorType = type;
+
+			bindings.push_back(new_bind);
+		}
+
+		void DescriptorLayoutBuilder::Clear()
+		{
+			bindings.clear();
+		}
+
+		VkDescriptorSetLayout DescriptorLayoutBuilder::Build(VkDevice device, VkShaderStageFlags shader_stages, void* pNext = nullptr, VkDescriptorSetLayoutCreateFlags flags = 0)
+		{
+			for (auto& b : bindings)
+			{
+				b.stageFlags |= shader_stages;
+			}
+
+			VkDescriptorSetLayoutCreateInfo create_info_descr = {};
+			create_info_descr.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+			create_info_descr.pNext = nullptr;
+
+			create_info_descr.pBindings = bindings.data();
+			create_info_descr.bindingCount = (uint32_t)bindings.size();
+			create_info_descr.flags = flags;
+
+			VkDescriptorSetLayout set;
+			VkResult result = vkCreateDescriptorSetLayout(device, &create_info_descr, nullptr, &set);
+			OB3D_VK_CHECK(result, "failed to create descriptor set layout!");
+
+			return set;
+		}
+
+		void DescriptorAllocator::InitPool(VkDevice device, uint32_t max_sets, std::span<PoolSizeRatio> pool_ratios)
+		{
+			std::vector<VkDescriptorPoolSize> pool_sizes;
+			for (PoolSizeRatio ratio : pool_ratios)
+			{
+				VkDescriptorPoolSize new_pool_size = {};
+				new_pool_size.type = ratio.type;
+				new_pool_size.descriptorCount = uint32_t(ratio.ratio * max_sets);
+				pool_sizes.push_back(new_pool_size);
+			}
+
+			VkDescriptorPoolCreateInfo info_pool = {};
+			info_pool.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+			info_pool.flags = 0;
+			info_pool.maxSets = max_sets;
+			info_pool.poolSizeCount = (uint32_t)pool_sizes.size();
+			info_pool.pPoolSizes = pool_sizes.data();
+
+			vkCreateDescriptorPool(device, &info_pool, nullptr, &pool);
+		}
+
+		void DescriptorAllocator::ClearDescriptors(VkDevice device)
+		{
+			vkResetDescriptorPool(device, pool, 0);
+		}
+
+		void DescriptorAllocator::DestroyPool(VkDevice device)
+		{
+			vkDestroyDescriptorPool(device, pool, nullptr);
+		}
+
+		VkDescriptorSet DescriptorAllocator::Allocate(VkDevice device, VkDescriptorSetLayout layout)
+		{
+			VkDescriptorSetAllocateInfo alloc_info = {};
+			alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+			alloc_info.pNext = nullptr;
+			alloc_info.descriptorPool = pool;
+			alloc_info.descriptorSetCount = 1;
+			alloc_info.pSetLayouts = &layout;
+
+			VkDescriptorSet ds;
+			VkResult result = vkAllocateDescriptorSets(device, &alloc_info, &ds);
+			OB3D_VK_CHECK(result, "failed to allocate descriptor sets!");
+
+			return ds;
+		}
+
 	}
 }

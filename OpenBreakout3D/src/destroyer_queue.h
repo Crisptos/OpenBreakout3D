@@ -1,5 +1,6 @@
 #pragma once
 #include "util.h"
+#include "vk_constructors.h"
 
 namespace OB3D
 {
@@ -15,7 +16,9 @@ namespace OB3D
 		DESTROYABLE_FENCE,
 		DESTROYABLE_COMMAND_POOL,
 		DESTROYABLE_DBG_MESSENGER,
-		DESTROYABLE_VMA
+		DESTROYABLE_VMA,
+		DESTROYABLE_DESCR_SET,
+		DESTROYABLE_DESCR_ALLOC
 	};
 
 	struct Destroyable
@@ -33,6 +36,7 @@ namespace OB3D
 			VkCommandPool cmd_pool;
 			VkDebugUtilsMessengerEXT dbg_msg;
 			VmaAllocator alloc;
+			VkDescriptorSetLayout set_layout;
 			uint64_t unknown;
 		};
 		VmaAllocation allocation;
@@ -46,6 +50,9 @@ namespace OB3D
 	public:
 		void Push(const Destroyable& destroyable);
 		void Flush();
+
+	public:
+		static VkConstructors::DescriptorAllocator descr_allocator;
 
 	private:
 		void DeletorHandle(Destroyable& destroyable);

@@ -7,6 +7,7 @@ namespace OB3D
 	VkInstance DestroyerQueue::inst_handle = nullptr;
 	VkDevice DestroyerQueue::device_handle = nullptr;
 	VmaAllocator DestroyerQueue::alloc_handle = nullptr;
+	VkConstructors::DescriptorAllocator DestroyerQueue::descr_allocator = {};
 
 
 	void DestroyerQueue::Push(const Destroyable& destroyable)
@@ -123,6 +124,14 @@ namespace OB3D
 				vmaDestroyAllocator(destroyable.alloc);
 				alloc_handle = nullptr;
 				fmt::println("VMA Destroyed Successfully");
+				break;
+			}
+
+			case DestroyableVkType::DESTROYABLE_DESCR_SET:
+			{
+				descr_allocator.DestroyPool(device_handle);
+				vkDestroyDescriptorSetLayout(device_handle, destroyable.set_layout, nullptr);
+				fmt::println("Descriptor Set Destroyed Successfully");
 				break;
 			}
 
